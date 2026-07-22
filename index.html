@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Database Izin Lingkungan - DLH Kabupaten Mojokerto</title>
+<style>
+  :root {
+    --primary: #16803c;
+    --primary-dark: #116330;
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --muted: #64748b;
+    --danger: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 24px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .card h2 { font-size: 15px; margin: 0 0 14px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+  input, select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    background: #fff;
+  }
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-secondary { background: #e2e8f0; color: var(--text); }
+  .btn-link { background: none; color: var(--primary); padding: 4px 0; text-decoration: underline; font-weight: 500; }
+  .actions { margin-top: 14px; display: flex; gap: 8px; }
+
+  /* Autocomplete */
+  .autocomplete-wrap { position: relative; }
+  .suggestions {
+    position: absolute;
+    top: 100%; left: 0; right: 0;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-top: 4px;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .suggestions div {
+    padding: 9px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .suggestions div:hover { background: #f0fdf4; }
+  .suggestions .sug-sub { color: var(--muted); font-size: 11px; }
+  .selected-company {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    margin-top: 8px;
+  }
+  .selected-company b { color: var(--primary-dark); }
+  #newCompanyFields { display: none; margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 12px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+  tr:hover td { background: #f8fafc; }
+  .row-actions button { padding: 5px 10px; font-size: 12px; font-weight: 500; }
+  .btn-edit { background: #eff6ff; color: #2563eb; }
+  .btn-delete { background: #fef2f2; color: var(--danger); }
+  #emptyState { text-align: center; color: var(--muted); padding: 30px; font-size: 13px; }
+  #status { font-size: 12px; margin-top: 8px; }
+  .status-ok { color: #16a34a; }
+  .status-err { color: var(--danger); }
+  .table-wrap { overflow-x: auto; }
+  .toolbar { margin-bottom: 14px; }
+  .toolbar input { max-width: 320px; }
+</style>
+</head>
+<body>
+
+<h1>🌿 Database Izin Lingkungan</h1>
+<div class="subtitle">DLH Kabupaten Mojokerto</div>
+
+<div class="card">
+  <h2 id="formTitle">Tambah Dokumen Izin</h2>
+  <form id="docForm">
+    <input type="hidden" id="editId">
+    <input type="hidden" id="perusahaanId">
+
+    <label>Cari Perusahaan / Usaha *</label>
+    <div class="autocomplete-wrap">
+      <input type="text" id="searchCompany" placeholder="Ketik nama perusahaan..." autocomplete="off" required>
+      <div class="suggestions" id="suggestions" style="display:none"></div>
+    </div>
+    <div class="selected-company" id="selectedCompanyBox" style="display:none"></div>
+    <button type="button" class="btn-link" id="btnNewCompany" style="display:none">+ Ini perusahaan baru, tambahkan datanya</button>
+
+    <div id="newCompanyFields">
+      <div class="grid">
+        <div>
+          <label>Alamat</label>
+          <input type="text" id="alamat">
+        </div>
+        <div>
+          <label>Dusun</label>
+          <input type="text" id="dusun">
+        </div>
+        <div>
+          <label>Desa</label>
+          <input type="text" id="desa">
+        </div>
+        <div>
+          <label>Kecamatan</label>
+          <input type="text" id="kecamatan">
+        </div>
+        <div>
+          <label>Jenis Usaha</label>
+          <input type="text" id="jenisUsaha">
+        </div>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:14px">
+      <div>
+        <label>No. Label Dokumen</label>
+        <input type="text" id="noLabel">
+      </div>
+      <div>
+        <label>Tahun</label>
+        <input type="number" id="tahun" min="2000" max="2100" placeholder="2026">
+      </div>
+      <div>
+        <label>Nomor Surat Keluar</label>
+        <input type="text" id="noSurat">
+      </div>
+      <div>
+        <label>Tanggal Keluar Izin</label>
+        <input type="date" id="tglKeluar">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="btn-primary" id="submitBtn">Simpan Dokumen</button>
+      <button type="button" class="btn-secondary" id="cancelEditBtn" style="display:none">Batal Edit</button>
+    </div>
+    <div id="status"></div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Daftar Dokumen Izin</h2>
+  <div class="toolbar">
+    <input type="text" id="searchBox" placeholder="🔍 Cari nama perusahaan, no. label, kecamatan...">
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>No Urut</th>
+          <th>No Label</th>
+          <th>Nama Industri/Usaha</th>
+          <th>Kecamatan</th>
+          <th>Jenis Usaha</th>
+          <th>Tahun</th>
+          <th>No Surat</th>
+          <th>Tgl Keluar</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+    <div id="emptyState" style="display:none">Belum ada data dokumen izin.</div>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let allDocs = [];
+let selectedCompany = null; // {id, nama_industri, alamat, dusun, desa, kecamatan, jenis_usaha}
+let searchTimeout = null;
+
+// ---------- LOAD & RENDER DOKUMEN ----------
+async function loadDocs() {
+  const { data, error } = await supabase
+    .from('dokumen_izin')
+    .select('*, perusahaan(nama_industri, alamat, dusun, desa, kecamatan, jenis_usaha)')
+    .order('no_urut', { ascending: false });
+
+  if (error) { showStatus('Gagal memuat data: ' + error.message, false); return; }
+  allDocs = data;
+  renderTable();
+}
+
+function renderTable() {
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  const filtered = allDocs.filter(d => {
+    const p = d.perusahaan || {};
+    const haystack = [d.no_label, p.nama_industri, p.kecamatan, p.jenis_usaha, d.no_surat]
+      .join(' ').toLowerCase();
+    return !q || haystack.includes(q);
+  });
+
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+  document.getElementById('emptyState').style.display = filtered.length ? 'none' : 'block';
+
+  filtered.forEach(d => {
+    const p = d.perusahaan || {};
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>' + d.no_urut + '</td>' +
+      '<td>' + esc(d.no_label) + '</td>' +
+      '<td>' + esc(p.nama_industri) + '</td>' +
+      '<td>' + esc(p.kecamatan) + '</td>' +
+      '<td>' + esc(p.jenis_usaha) + '</td>' +
+      '<td>' + esc(d.tahun) + '</td>' +
+      '<td>' + esc(d.no_surat) + '</td>' +
+      '<td>' + esc(d.tgl_keluar) + '</td>' +
+      '<td class="row-actions">' +
+        '<button class="btn-edit" data-id="' + d.id + '">Edit</button> ' +
+        '<button class="btn-delete" data-id="' + d.id + '">Hapus</button>' +
+      '</td>';
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('.btn-edit').forEach(b => b.addEventListener('click', () => editDoc(b.dataset.id)));
+  tbody.querySelectorAll('.btn-delete').forEach(b => b.addEventListener('click', () => deleteDoc(b.dataset.id)));
+}
+
+function esc(str) {
+  if (str === undefined || str === null) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ---------- AUTOCOMPLETE PERUSAHAAN ----------
+const searchInput = document.getElementById('searchCompany');
+const suggestionsBox = document.getElementById('suggestions');
+
+searchInput.addEventListener('input', () => {
+  clearSelectedCompany();
+  const term = searchInput.value.trim();
+  clearTimeout(searchTimeout);
+  if (!term) { suggestionsBox.style.display = 'none'; document.getElementById('btnNewCompany').style.display = 'none'; return; }
+  searchTimeout = setTimeout(async () => {
+    const { data, error } = await supabase
+      .from('perusahaan')
+      .select('*')
+      .ilike('nama_industri', '%' + term + '%')
+      .limit(8);
+    if (error) return;
+    renderSuggestions(data, term);
+  }, 300);
+});
+
+function renderSuggestions(list, term) {
+  suggestionsBox.innerHTML = '';
+  if (list.length === 0) {
+    suggestionsBox.style.display = 'none';
+    document.getElementById('btnNewCompany').style.display = 'inline-block';
+    return;
+  }
+  document.getElementById('btnNewCompany').style.display = 'inline-block';
+  list.forEach(p => {
+    const div = document.createElement('div');
+    div.innerHTML = esc(p.nama_industri) + '<div class="sug-sub">' + esc(p.kecamatan || '-') + ' · ' + esc(p.jenis_usaha || '-') + '</div>';
+    div.addEventListener('click', () => selectCompany(p));
+    suggestionsBox.appendChild(div);
+  });
+  suggestionsBox.style.display = 'block';
+}
+
+function selectCompany(p) {
+  selectedCompany = p;
+  document.getElementById('perusahaanId').value = p.id;
+  searchInput.value = p.nama_industri;
+  suggestionsBox.style.display = 'none';
+  document.getElementById('btnNewCompany').style.display = 'none';
+  document.getElementById('newCompanyFields').style.display = 'none';
+  const box = document.getElementById('selectedCompanyBox');
+  box.style.display = 'block';
+  box.innerHTML = 'Perusahaan terpilih: <b>' + esc(p.nama_industri) + '</b><br>' +
+    esc(p.alamat || '-') + ', Dusun ' + esc(p.dusun || '-') + ', Desa ' + esc(p.desa || '-') + ', Kec. ' + esc(p.kecamatan || '-');
+}
+
+function clearSelectedCompany() {
+  selectedCompany = null;
+  document.getElementById('perusahaanId').value = '';
+  document.getElementById('selectedCompanyBox').style.display = 'none';
+}
+
+document.getElementById('btnNewCompany').addEventListener('click', () => {
+  document.getElementById('newCompanyFields').style.display = 'block';
+  suggestionsBox.style.display = 'none';
+});
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.autocomplete-wrap')) suggestionsBox.style.display = 'none';
+});
+
+// ---------- SUBMIT FORM ----------
+document.getElementById('docForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const submitBtn = document.getElementById('submitBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Menyimpan...';
+
+  try {
+    let perusahaanId = document.getElementById('perusahaanId').value;
+
+    // Kalau belum ada perusahaan terpilih -> buat baru
+    if (!perusahaanId) {
+      const { data: newP, error: errP } = await supabase.from('perusahaan').insert({
+        nama_industri: searchInput.value.trim(),
+        alamat: document.getElementById('alamat').value,
+        dusun: document.getElementById('dusun').value,
+        desa: document.getElementById('desa').value,
+        kecamatan: document.getElementById('kecamatan').value,
+        jenis_usaha: document.getElementById('jenisUsaha').value
+      }).select().single();
+      if (errP) throw errP;
+      perusahaanId = newP.id;
+    }
+
+    const docPayload = {
+      no_label: document.getElementById('noLabel').value,
+      perusahaan_id: perusahaanId,
+      tahun: document.getElementById('tahun').value || null,
+      no_surat: document.getElementById('noSurat').value,
+      tgl_keluar: document.getElementById('tglKeluar').value || null
+    };
+
+    const editId = document.getElementById('editId').value;
+    if (editId) {
+      const { error } = await supabase.from('dokumen_izin').update(docPayload).eq('id', editId);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from('dokumen_izin').insert(docPayload);
+      if (error) throw error;
+    }
+
+    resetForm();
+    await loadDocs();
+    showStatus('Tersimpan.', true);
+  } catch (err) {
+    showStatus('Gagal: ' + err.message, false);
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
+
+// ---------- EDIT ----------
+function editDoc(id) {
+  const d = allDocs.find(x => x.id === id);
+  if (!d) return;
+  const p = d.perusahaan || {};
+  document.getElementById('editId').value = d.id;
+  document.getElementById('perusahaanId').value = d.perusahaan_id;
+  searchInput.value = p.nama_industri || '';
+  selectCompany({ id: d.perusahaan_id, ...p });
+  document.getElementById('noLabel').value = d.no_label || '';
+  document.getElementById('tahun').value = d.tahun || '';
+  document.getElementById('noSurat').value = d.no_surat || '';
+  document.getElementById('tglKeluar').value = d.tgl_keluar || '';
+  document.getElementById('formTitle').textContent = 'Edit Dokumen Izin';
+  document.getElementById('submitBtn').textContent = 'Update Dokumen';
+  document.getElementById('cancelEditBtn').style.display = 'inline-block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.getElementById('cancelEditBtn').addEventListener('click', resetForm);
+
+function resetForm() {
+  document.getElementById('docForm').reset();
+  document.getElementById('editId').value = '';
+  document.getElementById('newCompanyFields').style.display = 'none';
+  document.getElementById('formTitle').textContent = 'Tambah Dokumen Izin';
+  document.getElementById('submitBtn').textContent = 'Simpan Dokumen';
+  document.getElementById('cancelEditBtn').style.display = 'none';
+  clearSelectedCompany();
+}
+
+// ---------- DELETE ----------
+async function deleteDoc(id) {
+  if (!confirm('Hapus dokumen izin ini? (Data perusahaan tidak ikut terhapus)')) return;
+  const { error } = await supabase.from('dokumen_izin').delete().eq('id', id);
+  if (error) { showStatus('Gagal: ' + error.message, false); return; }
+  await loadDocs();
+  showStatus('Dokumen dihapus.', true);
+}
+
+function showStatus(msg, ok) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = ok ? 'status-ok' : 'status-err';
+  setTimeout(() => { el.textContent = ''; }, 3000);
+}
+
+document.getElementById('searchBox').addEventListener('input', renderTable);
+
+loadDocs();
+</script>
+</body>
+</html>
