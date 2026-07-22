@@ -109,6 +109,7 @@
   .table-wrap { overflow-x: auto; }
   .toolbar { margin-bottom: 14px; }
   .toolbar input { max-width: 320px; }
+  input[readonly] { background: #f1f5f9; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -157,12 +158,13 @@
 
     <div class="grid" style="margin-top:14px">
       <div>
-        <label>No. Label Dokumen</label>
-        <input type="text" id="noLabel">
-      </div>
-      <div>
         <label>Tahun</label>
         <input type="number" id="tahun" min="2000" max="2100" placeholder="2026">
+      </div>
+      <div>
+        <label>No. Label (otomatis, urut per tahun)</label>
+        <input type="text" id="noLabelDisplay" readonly placeholder="Isi Tahun dulu">
+        <input type="hidden" id="noLabel">
       </div>
       <div>
         <label>Nomor Surat Keluar</label>
@@ -248,7 +250,7 @@ function renderTable() {
     const tr = document.createElement('tr');
     tr.innerHTML =
       '<td>' + d.no_urut + '</td>' +
-      '<td>' + esc(d.no_label) + '</td>' +
+      '<td>' + esc(d.no_label) + '/' + esc(d.tahun) + '</td>' +
       '<td>' + esc(p.nama_industri) + '</td>' +
       '<td>' + esc(p.kecamatan) + '</td>' +
       '<td>' + esc(p.jenis_usaha) + '</td>' +
@@ -338,6 +340,26 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest('.autocomplete-wrap')) suggestionsBox.style.display = 'none';
 });
 
+// ---------- HITUNG OTOMATIS NO LABEL PER TAHUN ----------
+async function updateNoLabelPreview() {
+  const tahun = document.getElementById('tahun').value;
+  const display = document.getElementById('noLabelDisplay');
+  const hidden = document.getElementById('noLabel');
+  if (!tahun) { display.value = ''; hidden.value = ''; return; }
+  const { data, error } = await supabase
+    .from('dokumen_izin')
+    .select('no_label')
+    .eq('tahun', tahun)
+    .order('no_label', { ascending: false })
+    .limit(1);
+  if (error) { display.value = 'Gagal hitung'; return; }
+  const next = (data && data.length && data[0].no_label) ? Number(data[0].no_label) + 1 : 1;
+  display.value = next + ' / ' + tahun;
+  hidden.value = next;
+}
+document.getElementById('tahun').addEventListener('input', updateNoLabelPreview);
+document.getElementById('tahun').addEventListener('blur', updateNoLabelPreview);
+
 // ---------- SUBMIT FORM ----------
 document.getElementById('docForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -362,15 +384,24 @@ document.getElementById('docForm').addEventListener('submit', async (e) => {
       perusahaanId = newP.id;
     }
 
+    const editId = document.getElementById('editId').value;
+
+    // Hitung ulang no_label tepat sebelum simpan (biar akurat, hindari bentrok
+    // kalau ada input lain masuk di antara waktu buka form dan klik simpan)
+    let noLabelFinal = document.getElementById('noLabel').value;
+    if (!editId) {
+      await updateNoLabelPreview();
+      noLabelFinal = document.getElementById('noLabel').value;
+    }
+
     const docPayload = {
-      no_label: document.getElementById('noLabel').value,
+      no_label: noLabelFinal || null,
       perusahaan_id: perusahaanId,
       tahun: document.getElementById('tahun').value || null,
       no_surat: document.getElementById('noSurat').value,
       tgl_keluar: document.getElementById('tglKeluar').value || null
     };
 
-    const editId = document.getElementById('editId').value;
     if (editId) {
       const { error } = await supabase.from('dokumen_izin').update(docPayload).eq('id', editId);
       if (error) throw error;
@@ -400,6 +431,7 @@ function editDoc(id) {
   selectCompany({ id: d.perusahaan_id, ...p });
   document.getElementById('noLabel').value = d.no_label || '';
   document.getElementById('tahun').value = d.tahun || '';
+  document.getElementById('noLabelDisplay').value = (d.no_label || '') + ' / ' + (d.tahun || '');
   document.getElementById('noSurat').value = d.no_surat || '';
   document.getElementById('tglKeluar').value = d.tgl_keluar || '';
   document.getElementById('formTitle').textContent = 'Edit Dokumen Izin';
