@@ -103,7 +103,6 @@
     margin-top: 8px;
   }
   .selected-company b { color: var(--primary-dark); }
-  #newCompanyFields { display: none; margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 12px; }
 
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
@@ -140,32 +139,29 @@
     <input type="hidden" id="editId">
     <input type="hidden" id="perusahaanId">
 
-    <label>Cari Perusahaan / Usaha *</label>
+    <label>Cari / Nama Perusahaan *</label>
     <div class="autocomplete-wrap">
       <input type="text" id="searchCompany" placeholder="Ketik nama perusahaan..." autocomplete="off" required>
       <div class="suggestions" id="suggestions" style="display:none"></div>
     </div>
     <div class="selected-company" id="selectedCompanyBox" style="display:none"></div>
-    <button type="button" class="btn-link" id="btnNewCompany" style="display:none">+ Ini perusahaan baru, tambahkan datanya</button>
 
-    <div id="newCompanyFields">
-      <div class="grid">
-        <div>
-          <label>Alamat</label>
-          <input type="text" id="alamat">
-        </div>
-        <div>
-          <label>Desa/Kelurahan</label>
-          <input type="text" id="desaKelurahan">
-        </div>
-        <div>
-          <label>Kecamatan</label>
-          <input type="text" id="kecamatan">
-        </div>
-        <div>
-          <label>Jenis Usaha</label>
-          <input type="text" id="jenisUsaha">
-        </div>
+    <div class="grid" style="margin-top:10px" id="companyFields">
+      <div>
+        <label>Alamat</label>
+        <input type="text" id="alamat">
+      </div>
+      <div>
+        <label>Desa/Kelurahan</label>
+        <input type="text" id="desaKelurahan">
+      </div>
+      <div>
+        <label>Kecamatan</label>
+        <input type="text" id="kecamatan">
+      </div>
+      <div>
+        <label>Jenis Usaha</label>
+        <input type="text" id="jenisUsaha">
       </div>
     </div>
 
@@ -339,12 +335,15 @@ function esc(str) {
 // ---------- AUTOCOMPLETE PERUSAHAAN ----------
 const searchInput = document.getElementById('searchCompany');
 const suggestionsBox = document.getElementById('suggestions');
+const companyFieldIds = ['alamat', 'desaKelurahan', 'kecamatan', 'jenisUsaha'];
 
 searchInput.addEventListener('input', () => {
-  clearSelectedCompany();
+  // Ketikan berubah -> anggap perusahaan baru lagi, buka kunci field (kalau lagi terkunci)
+  if (selectedCompany) unlockCompanyFields();
+
   const term = searchInput.value.trim();
   clearTimeout(searchTimeout);
-  if (!term) { suggestionsBox.style.display = 'none'; document.getElementById('btnNewCompany').style.display = 'none'; return; }
+  if (!term) { suggestionsBox.style.display = 'none'; return; }
   searchTimeout = setTimeout(async () => {
     const { data, error } = await supabase
       .from('perusahaan')
@@ -357,13 +356,13 @@ searchInput.addEventListener('input', () => {
 });
 
 function renderSuggestions(list, term) {
+  // Kalau ada yang namanya PERSIS SAMA (bukan cuma mirip), langsung anggap itu perusahaan
+  // yang sudah ada -> auto-kunci, gak perlu diklik manual
+  const exact = list.find(p => p.nama_industri.trim().toLowerCase() === term.trim().toLowerCase());
+  if (exact) { selectCompany(exact); return; }
+
   suggestionsBox.innerHTML = '';
-  if (list.length === 0) {
-    suggestionsBox.style.display = 'none';
-    document.getElementById('btnNewCompany').style.display = 'inline-block';
-    return;
-  }
-  document.getElementById('btnNewCompany').style.display = 'inline-block';
+  if (list.length === 0) { suggestionsBox.style.display = 'none'; return; }
   list.forEach(p => {
     const div = document.createElement('div');
     div.innerHTML = esc(p.nama_industri) + '<div class="sug-sub">' + esc(p.kecamatan || '-') + ' · ' + esc(p.jenis_usaha || '-') + '</div>';
@@ -378,24 +377,32 @@ function selectCompany(p) {
   document.getElementById('perusahaanId').value = p.id;
   searchInput.value = p.nama_industri;
   suggestionsBox.style.display = 'none';
-  document.getElementById('btnNewCompany').style.display = 'none';
-  document.getElementById('newCompanyFields').style.display = 'none';
+
+  document.getElementById('alamat').value = p.alamat || '';
+  document.getElementById('desaKelurahan').value = p.desa_kelurahan || '';
+  document.getElementById('kecamatan').value = p.kecamatan || '';
+  document.getElementById('jenisUsaha').value = p.jenis_usaha || '';
+  companyFieldIds.forEach(id => document.getElementById(id).readOnly = true);
+
   const box = document.getElementById('selectedCompanyBox');
   box.style.display = 'block';
-  box.innerHTML = 'Perusahaan terpilih: <b>' + esc(p.nama_industri) + '</b><br>' +
-    esc(p.alamat || '-') + ', Desa/Kel. ' + esc(p.desa_kelurahan || '-') + ', Kec. ' + esc(p.kecamatan || '-');
+  box.innerHTML = '✓ Perusahaan ini sudah ada di database, datanya otomatis diisi. ' +
+    '<button type="button" class="btn-link" id="unlockCompanyBtn" style="margin-left:6px">Bukan perusahaan ini?</button>';
+  document.getElementById('unlockCompanyBtn').addEventListener('click', () => {
+    unlockCompanyFields();
+    searchInput.focus();
+  });
 }
 
-function clearSelectedCompany() {
+function unlockCompanyFields() {
   selectedCompany = null;
   document.getElementById('perusahaanId').value = '';
   document.getElementById('selectedCompanyBox').style.display = 'none';
+  companyFieldIds.forEach(id => {
+    document.getElementById(id).readOnly = false;
+    document.getElementById(id).value = '';
+  });
 }
-
-document.getElementById('btnNewCompany').addEventListener('click', () => {
-  document.getElementById('newCompanyFields').style.display = 'block';
-  suggestionsBox.style.display = 'none';
-});
 
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.autocomplete-wrap')) suggestionsBox.style.display = 'none';
@@ -430,11 +437,25 @@ document.getElementById('docForm').addEventListener('submit', async (e) => {
 
   try {
     let perusahaanId = document.getElementById('perusahaanId').value;
+    const editId = document.getElementById('editId').value;
+    const namaInput = searchInput.value.trim();
 
-    // Kalau belum ada perusahaan terpilih -> buat baru
     if (!perusahaanId) {
+      // Belum ada perusahaan terpilih dari saran -> mau dibuat baru.
+      // Jaga-jaga: cek dulu ke database, siapa tau namanya PERSIS sama dengan yang
+      // sudah ada tapi belum sempat ke-auto-detect (misal langsung paste & submit cepat).
+      const { data: cek, error: errCek } = await supabase
+        .from('perusahaan')
+        .select('id, nama_industri')
+        .ilike('nama_industri', namaInput);
+      if (errCek) throw errCek;
+      const sudahAda = (cek || []).find(p => p.nama_industri.trim().toLowerCase() === namaInput.toLowerCase());
+      if (sudahAda) {
+        throw new Error('Perusahaan "' + namaInput + '" sudah ada di database. Pilih dari saran pencarian di atas ya, biar gak dobel.');
+      }
+
       const { data: newP, error: errP } = await supabase.from('perusahaan').insert({
-        nama_industri: searchInput.value.trim(),
+        nama_industri: namaInput,
         alamat: document.getElementById('alamat').value,
         desa_kelurahan: document.getElementById('desaKelurahan').value,
         kecamatan: document.getElementById('kecamatan').value,
@@ -442,9 +463,17 @@ document.getElementById('docForm').addEventListener('submit', async (e) => {
       }).select().single();
       if (errP) throw errP;
       perusahaanId = newP.id;
+    } else if (editId) {
+      // Mode edit dokumen yang perusahaannya sudah ada -> boleh update data perusahaannya juga
+      const { error: errUpdateP } = await supabase.from('perusahaan').update({
+        nama_industri: namaInput,
+        alamat: document.getElementById('alamat').value,
+        desa_kelurahan: document.getElementById('desaKelurahan').value,
+        kecamatan: document.getElementById('kecamatan').value,
+        jenis_usaha: document.getElementById('jenisUsaha').value
+      }).eq('id', perusahaanId);
+      if (errUpdateP) throw errUpdateP;
     }
-
-    const editId = document.getElementById('editId').value;
 
     // Hitung ulang no_label tepat sebelum simpan (biar akurat, hindari bentrok
     // kalau ada input lain masuk di antara waktu buka form dan klik simpan)
@@ -489,6 +518,14 @@ function editDoc(id) {
   document.getElementById('perusahaanId').value = d.perusahaan_id;
   searchInput.value = p.nama_industri || '';
   selectCompany({ id: d.perusahaan_id, ...p });
+
+  // Beda dari mode "tambah dokumen" (field perusahaan dikunci biar aman),
+  // di mode EDIT field perusahaan tetap boleh diubah penuh, tapi perusahaanId
+  // TETAP dipertahankan (jadi nanti ke-update, bukan bikin perusahaan baru).
+  companyFieldIds.forEach(id => document.getElementById(id).readOnly = false);
+  document.getElementById('selectedCompanyBox').innerHTML =
+    '✏️ Kamu bisa ubah data perusahaan di bawah ini — perubahan akan tersimpan untuk perusahaan ini.';
+
   document.getElementById('noLabel').value = d.no_label || '';
   document.getElementById('tahun').value = d.tahun || '';
   document.getElementById('noLabelDisplay').value = (d.no_label || '') + ' / ' + (d.tahun || '');
@@ -505,18 +542,36 @@ document.getElementById('cancelEditBtn').addEventListener('click', resetForm);
 function resetForm() {
   document.getElementById('docForm').reset();
   document.getElementById('editId').value = '';
-  document.getElementById('newCompanyFields').style.display = 'none';
   document.getElementById('formTitle').textContent = 'Tambah Dokumen Izin';
   document.getElementById('submitBtn').textContent = 'Simpan Dokumen';
   document.getElementById('cancelEditBtn').style.display = 'none';
-  clearSelectedCompany();
+  unlockCompanyFields();
 }
 
 // ---------- DELETE ----------
 async function deleteDoc(id) {
-  if (!confirm('Hapus dokumen izin ini? (Data perusahaan tidak ikut terhapus)')) return;
+  const d = allDocs.find(x => x.id === id);
+  if (!confirm('Hapus dokumen izin ini?')) return;
+
   const { error } = await supabase.from('dokumen_izin').delete().eq('id', id);
   if (error) { showStatus('Gagal: ' + error.message, false); return; }
+
+  // Cek: apakah ini dokumen TERAKHIR milik perusahaan tsb? Kalau iya, data
+  // perusahaannya jadi "nyantol" tanpa dokumen sama sekali -> tawarkan dibersihkan juga.
+  if (d && d.perusahaan_id) {
+    const { count } = await supabase
+      .from('dokumen_izin')
+      .select('id', { count: 'exact', head: true })
+      .eq('perusahaan_id', d.perusahaan_id);
+
+    if (count === 0) {
+      const namaP = (d.perusahaan || {}).nama_industri || 'perusahaan ini';
+      if (confirm('Ini dokumen terakhir milik "' + namaP + '". Sekalian hapus juga data perusahaannya dari database? (Kalau tidak, datanya tetap tersimpan meski tanpa dokumen)')) {
+        await supabase.from('perusahaan').delete().eq('id', d.perusahaan_id);
+      }
+    }
+  }
+
   await loadDocs();
   showStatus('Dokumen dihapus.', true);
 }
