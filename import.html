@@ -58,6 +58,7 @@
     <div class="summary-item"><div class="num" id="totalCompanies">0</div><div class="label">Perusahaan unik terdeteksi</div></div>
   </div>
   <p class="warn">⚠️ Cek dulu daftar perusahaan di bawah — kalau ada nama yang harusnya sama tapi beda ketikan (misal "PT ABC" vs "PT. ABC"), itu akan dianggap 2 perusahaan berbeda. Perbaiki dulu di Excel kalau ketemu, lalu upload ulang.</p>
+  <div id="tanggalWarning" style="display:none"></div>
   <div class="table-wrap">
     <table>
       <thead><tr><th>Nama Industri (unik)</th><th>Kecamatan</th><th>Jumlah Dokumen</th></tr></thead>
@@ -84,6 +85,7 @@ function handleFile(e) {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
+  tanggalGagal = [];
   reader.onload = (evt) => {
     try {
       const data = new Uint8Array(evt.target.result);
@@ -109,9 +111,32 @@ function findKey(row, keywords) {
   return null;
 }
 
-function formatDate(val) {
+const BULAN_MAP = {
+  JAN: 1, FEB: 2, MAR: 3, APR: 4, MEI: 5, MAY: 5, JUN: 6, JUNI: 6, JUL: 7, JULI: 7,
+  AGU: 8, AGS: 8, AUG: 8, SEP: 9, SEPT: 9, OKT: 10, OCT: 10, NOV: 11, NOP: 11, DES: 12, DEC: 12
+};
+let tanggalGagal = []; // untuk dilaporkan ke user, bukan bikin proses berhenti
+
+function formatDate(val, contextLabel) {
   if (val instanceof Date && !isNaN(val)) return val.toISOString().slice(0, 10);
-  if (typeof val === 'string' && val.trim()) return val.trim();
+  if (typeof val !== 'string' || !val.trim()) return '';
+  const str = val.trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str; // sudah ISO
+
+  // format "21-Nop-2008" / "21 November 2008" / "21/Nov/2008"
+  let m = str.match(/^(\d{1,2})[\s\-\/]+([A-Za-z]{3,})[\s\-\/]+(\d{4})$/);
+  if (m) {
+    const bulan = BULAN_MAP[m[2].substring(0, 3).toUpperCase()];
+    if (bulan) return m[3] + '-' + String(bulan).padStart(2, '0') + '-' + m[1].padStart(2, '0');
+  }
+
+  // format "21-11-2008" / "21/11/2008" (DD-MM-YYYY ala Indonesia)
+  m = str.match(/^(\d{1,2})[\-\/](\d{1,2})[\-\/](\d{4})$/);
+  if (m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+
+  // gak kekenal formatnya -> kosongkan, catat buat dilaporkan, JANGAN bikin gagal semua
+  tanggalGagal.push({ label: contextLabel, nilai: str });
   return '';
 }
 
@@ -139,9 +164,12 @@ function normalizeRows(json) {
     tahun: map.tahun ? row[map.tahun] : '',
     no_label: map.no_label ? row[map.no_label] : '',
     no_surat: map.no_surat ? row[map.no_surat] : '',
-    tgl_keluar: map.tgl_keluar ? formatDate(row[map.tgl_keluar]) : ''
+    tgl_keluar: map.tgl_keluar
+      ? formatDate(row[map.tgl_keluar], (map.nama_industri ? row[map.nama_industri] : '').toString())
+      : ''
   })).filter(r => r.nama_industri);
 }
+
 
 function buildCompanyGroups() {
   companyGroups = new Map();
@@ -169,7 +197,24 @@ function renderPreview() {
     tr.innerHTML = '<td>' + esc(c.nama_industri) + '</td><td>' + esc(c.kecamatan) + '</td><td>' + c.docs.length + '</td>';
     tbody.appendChild(tr);
   });
+
+  const tglWarn = document.getElementById('tanggalWarning');
+  if (tanggalGagal.length > 0) {
+    tglWarn.style.display = 'block';
+    let html = '<p class="warn">⚠️ ' + tanggalGagal.length + ' tanggal formatnya tidak dikenali dan akan DIKOSONGKAN dulu (dokumennya tetap ikut terimport, cuma tanggalnya kosong) — bisa diisi manual nanti lewat halaman utama, atau perbaiki formatnya di Excel lalu upload ulang:</p>';
+    html += '<div class="table-wrap" style="max-height:160px"><table><thead><tr><th>Nama Industri</th><th>Nilai Tanggal Asli</th></tr></thead><tbody>';
+    tanggalGagal.slice(0, 100).forEach(t => {
+      html += '<tr><td>' + esc(t.label) + '</td><td>' + esc(t.nilai) + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    if (tanggalGagal.length > 100) html += '<p class="warn">...dan ' + (tanggalGagal.length - 100) + ' lainnya.</p>';
+    tglWarn.innerHTML = html;
+  } else {
+    tglWarn.style.display = 'none';
+    tglWarn.innerHTML = '';
+  }
 }
+
 
 function esc(str) {
   if (str === undefined || str === null) return '';
