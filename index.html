@@ -138,12 +138,8 @@
           <input type="text" id="alamat">
         </div>
         <div>
-          <label>Dusun</label>
-          <input type="text" id="dusun">
-        </div>
-        <div>
-          <label>Desa</label>
-          <input type="text" id="desa">
+          <label>Desa/Kelurahan</label>
+          <input type="text" id="desaKelurahan">
         </div>
         <div>
           <label>Kecamatan</label>
@@ -217,14 +213,14 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let allDocs = [];
-let selectedCompany = null; // {id, nama_industri, alamat, dusun, desa, kecamatan, jenis_usaha}
+let selectedCompany = null; // {id, nama_industri, alamat, desa_kelurahan, kecamatan, jenis_usaha}
 let searchTimeout = null;
 
 // ---------- LOAD & RENDER DOKUMEN ----------
 async function loadDocs() {
   const { data, error } = await supabase
     .from('dokumen_izin')
-    .select('*, perusahaan(nama_industri, alamat, dusun, desa, kecamatan, jenis_usaha)')
+    .select('*, perusahaan(nama_industri, alamat, desa_kelurahan, kecamatan, jenis_usaha)')
     .order('no_urut', { ascending: false });
 
   if (error) { showStatus('Gagal memuat data: ' + error.message, false); return; }
@@ -322,7 +318,7 @@ function selectCompany(p) {
   const box = document.getElementById('selectedCompanyBox');
   box.style.display = 'block';
   box.innerHTML = 'Perusahaan terpilih: <b>' + esc(p.nama_industri) + '</b><br>' +
-    esc(p.alamat || '-') + ', Dusun ' + esc(p.dusun || '-') + ', Desa ' + esc(p.desa || '-') + ', Kec. ' + esc(p.kecamatan || '-');
+    esc(p.alamat || '-') + ', Desa/Kel. ' + esc(p.desa_kelurahan || '-') + ', Kec. ' + esc(p.kecamatan || '-');
 }
 
 function clearSelectedCompany() {
@@ -375,8 +371,7 @@ document.getElementById('docForm').addEventListener('submit', async (e) => {
       const { data: newP, error: errP } = await supabase.from('perusahaan').insert({
         nama_industri: searchInput.value.trim(),
         alamat: document.getElementById('alamat').value,
-        dusun: document.getElementById('dusun').value,
-        desa: document.getElementById('desa').value,
+        desa_kelurahan: document.getElementById('desaKelurahan').value,
         kecamatan: document.getElementById('kecamatan').value,
         jenis_usaha: document.getElementById('jenisUsaha').value
       }).select().single();
