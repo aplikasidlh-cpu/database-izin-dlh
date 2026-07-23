@@ -248,7 +248,8 @@ async function loadDocs() {
   const { data, error } = await supabase
     .from('dokumen_izin')
     .select('*, perusahaan(nama_industri, alamat, desa_kelurahan, kecamatan, jenis_usaha)')
-    .order('no_urut', { ascending: false });
+    .order('tahun', { ascending: true, nullsFirst: false })
+    .order('no_label', { ascending: true, nullsFirst: false });
 
   if (error) { showStatus('Gagal memuat data: ' + error.message, false); return; }
   allDocs = data;
