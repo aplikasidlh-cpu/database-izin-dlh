@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Database Izin Lingkungan - DLH Kabupaten Mojokerto</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root {
     --primary: #16803c;
@@ -60,6 +61,14 @@
   .btn-primary:hover { background: var(--primary-dark); }
   .btn-secondary { background: #e2e8f0; color: var(--text); }
   .btn-link { background: none; color: var(--primary); padding: 4px 0; text-decoration: underline; font-weight: 500; }
+  .header-actions { display: flex; gap: 10px; margin-bottom: 20px; }
+  .btn-header {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #fff; border: 1px solid var(--border); color: var(--text);
+    padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600;
+    text-decoration: none;
+  }
+  .btn-header:hover { background: #f8fafc; }
   .actions { margin-top: 14px; display: flex; gap: 8px; }
 
   /* Autocomplete */
@@ -116,6 +125,11 @@
 
 <h1>🌿 Database Izin Lingkungan</h1>
 <div class="subtitle">DLH Kabupaten Mojokerto</div>
+
+<div class="header-actions">
+  <a href="import.html" class="btn-header">📥 Import dari Excel</a>
+  <button type="button" class="btn-header" id="exportBtn">📤 Export ke Excel</button>
+</div>
 
 <div class="card">
   <h2 id="formTitle">Tambah Dokumen Izin</h2>
@@ -464,6 +478,49 @@ function showStatus(msg, ok) {
 }
 
 document.getElementById('searchBox').addEventListener('input', renderTable);
+
+// ---------- EXPORT KE EXCEL ----------
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  const filtered = allDocs.filter(d => {
+    const p = d.perusahaan || {};
+    const haystack = [d.no_label, p.nama_industri, p.kecamatan, p.jenis_usaha, d.no_surat]
+      .join(' ').toLowerCase();
+    return !q || haystack.includes(q);
+  });
+
+  if (filtered.length === 0) {
+    alert('Tidak ada data untuk diexport.');
+    return;
+  }
+
+  const rows = filtered.map(d => {
+    const p = d.perusahaan || {};
+    return {
+      'NO URUT': d.no_urut,
+      'LABEL': d.no_label,
+      'NAMA INDUSTRI': p.nama_industri || '',
+      'ALAMAT': p.alamat || '',
+      'DESA/KELURAHAN': p.desa_kelurahan || '',
+      'KECAMATAN': p.kecamatan || '',
+      'JENIS USAHA': p.jenis_usaha || '',
+      'TAHUN': d.tahun,
+      'NO. SURAT': d.no_surat || '',
+      'TANGGAL': d.tgl_keluar || ''
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [
+    { wch: 8 }, { wch: 8 }, { wch: 28 }, { wch: 26 }, { wch: 18 },
+    { wch: 14 }, { wch: 18 }, { wch: 8 }, { wch: 22 }, { wch: 12 }
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Data Izin');
+
+  const today = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, 'database-izin-dlh-' + today + '.xlsx');
+});
 
 loadDocs();
 </script>
