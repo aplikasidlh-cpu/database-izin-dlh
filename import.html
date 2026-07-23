@@ -121,8 +121,7 @@ function normalizeRows(json) {
   const map = {
     nama_industri: findKey(sample, ['NAMAINDUSTRI', 'NAMAUSAHA', 'NAMAPERUSAHAAN']),
     alamat: findKey(sample, ['ALAMAT']),
-    dusun: findKey(sample, ['DUSUN']),
-    desa: findKey(sample, ['DESA']),
+    desa_kelurahan: findKey(sample, ['DESA']),
     kecamatan: findKey(sample, ['KECAMATAN']),
     jenis_usaha: findKey(sample, ['JENISUSAHA']),
     tahun: findKey(sample, ['THN', 'TAHUN']),
@@ -134,8 +133,7 @@ function normalizeRows(json) {
   return json.map(row => ({
     nama_industri: (map.nama_industri ? row[map.nama_industri] : '').toString().trim(),
     alamat: map.alamat ? row[map.alamat] : '',
-    dusun: map.dusun ? row[map.dusun] : '',
-    desa: map.desa ? row[map.desa] : '',
+    desa_kelurahan: map.desa_kelurahan ? row[map.desa_kelurahan] : '',
     kecamatan: map.kecamatan ? row[map.kecamatan] : '',
     jenis_usaha: map.jenis_usaha ? row[map.jenis_usaha] : '',
     tahun: map.tahun ? row[map.tahun] : '',
@@ -151,8 +149,8 @@ function buildCompanyGroups() {
     const key = r.nama_industri.trim().toLowerCase();
     if (!companyGroups.has(key)) {
       companyGroups.set(key, {
-        nama_industri: r.nama_industri, alamat: r.alamat, dusun: r.dusun,
-        desa: r.desa, kecamatan: r.kecamatan, jenis_usaha: r.jenis_usaha, docs: []
+        nama_industri: r.nama_industri, alamat: r.alamat,
+        desa_kelurahan: r.desa_kelurahan, kecamatan: r.kecamatan, jenis_usaha: r.jenis_usaha, docs: []
       });
     }
     companyGroups.get(key).docs.push(r);
@@ -195,8 +193,8 @@ async function startImport() {
     const { data: insertedCompanies, error: errP } = await supabase
       .from('perusahaan')
       .insert(companies.map(c => ({
-        nama_industri: c.nama_industri, alamat: c.alamat, dusun: c.dusun,
-        desa: c.desa, kecamatan: c.kecamatan, jenis_usaha: c.jenis_usaha
+        nama_industri: c.nama_industri, alamat: c.alamat,
+        desa_kelurahan: c.desa_kelurahan, kecamatan: c.kecamatan, jenis_usaha: c.jenis_usaha
       })))
       .select();
     if (errP) throw errP;
