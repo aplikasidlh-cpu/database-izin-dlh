@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Database Izin Lingkungan - DLH Kabupaten Mojokerto</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --primary: #16803c;
+    --primary-dark: #116330;
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --muted: #64748b;
+    --danger: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 24px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .card h2 { font-size: 15px; margin: 0 0 14px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+  input, select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    background: #fff;
+  }
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-secondary { background: #e2e8f0; color: var(--text); }
+  .btn-link { background: none; color: var(--primary); padding: 4px 0; text-decoration: underline; font-weight: 500; }
+  .header-actions { display: flex; gap: 10px; margin-bottom: 20px; }
+  .btn-header {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #fff; border: 1px solid var(--border); color: var(--text);
+    padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600;
+    text-decoration: none;
+  }
+  .btn-header:hover { background: #f8fafc; }
+  .btn-header:disabled { opacity: 0.4; cursor: not-allowed; }
+  .actions { margin-top: 14px; display: flex; gap: 8px; }
+
+  /* Autocomplete */
+  .autocomplete-wrap { position: relative; }
+  .suggestions {
+    position: absolute;
+    top: 100%; left: 0; right: 0;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-top: 4px;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .suggestions div {
+    padding: 9px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .suggestions div:hover { background: #f0fdf4; }
+  .suggestions .sug-sub { color: var(--muted); font-size: 11px; }
+  .selected-company {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    margin-top: 8px;
+  }
+  .selected-company b { color: var(--primary-dark); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+  tr:hover td { background: #f8fafc; }
+  .row-actions button { padding: 5px 10px; font-size: 12px; font-weight: 500; }
+  .btn-edit { background: #eff6ff; color: #2563eb; }
+  .btn-delete { background: #fef2f2; color: var(--danger); }
+  #emptyState { text-align: center; color: var(--muted); padding: 30px; font-size: 13px; }
+  #status { font-size: 12px; margin-top: 8px; }
+  .status-ok { color: #16a34a; }
+  .status-err { color: var(--danger); }
+  .table-wrap { overflow-x: auto; }
+  .toolbar { margin-bottom: 14px; }
+  .toolbar input { max-width: 320px; }
+  .toolbar select { max-width: 220px; width: auto; }
+  .pagination { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .view-toggle { display: flex; gap: 8px; margin-bottom: 14px; }
+  .toggle-btn {
+    background: #f1f5f9; border: 1px solid var(--border); color: var(--muted);
+    padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .toggle-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .company-group {
+    border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; overflow: hidden;
+  }
+  .company-group summary {
+    padding: 12px 14px; cursor: pointer; font-size: 13px; display: flex;
+    align-items: center; justify-content: space-between; gap: 10px; list-style: none;
+  }
+  .company-group summary::-webkit-details-marker { display: none; }
+  .company-group summary:hover { background: #f8fafc; }
+  .company-group summary .cname { font-weight: 700; color: var(--text); }
+  .company-group summary .cmeta { color: var(--muted); font-size: 12px; }
+  .company-group .badge-count {
+    background: #eff6ff; color: #2563eb; border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; white-space: nowrap;
+  }
+  .company-group .company-detail { padding: 0 14px 10px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 8px; }
+  .company-group table { margin: 0; }
+  .company-group th, .company-group td { padding: 7px 14px; font-size: 12px; }
+  input[readonly] { background: #f1f5f9; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<h1>🌿 Database Izin Lingkungan</h1>
+<div class="subtitle">DLH Kabupaten Mojokerto</div>
+
+<div class="header-actions">
+  <a href="import.html" class="btn-header">📥 Import dari Excel</a>
+  <button type="button" class="btn-header" id="exportBtn">📤 Export ke Excel</button>
+</div>
+
+<div class="card">
+  <h2 id="formTitle">Tambah Dokumen Izin</h2>
+  <form id="docForm">
+    <input type="hidden" id="editId">
+    <input type="hidden" id="perusahaanId">
+
+    <label>Cari / Nama Perusahaan *</label>
+    <div class="autocomplete-wrap">
+      <input type="text" id="searchCompany" placeholder="Ketik nama perusahaan..." autocomplete="off" required>
+      <div class="suggestions" id="suggestions" style="display:none"></div>
+    </div>
+    <div class="selected-company" id="selectedCompanyBox" style="display:none"></div>
+
+    <div class="grid" style="margin-top:10px" id="companyFields">
+      <div>
+        <label>Alamat</label>
+        <input type="text" id="alamat">
+      </div>
+      <div>
+        <label>Desa/Kelurahan</label>
+        <input type="text" id="desaKelurahan">
+      </div>
+      <div>
+        <label>Kecamatan</label>
+        <input type="text" id="kecamatan">
+      </div>
+      <div>
+        <label>Jenis Usaha</label>
+        <input type="text" id="jenisUsaha">
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:14px">
+      <div>
+        <label>Tahun</label>
+        <input type="number" id="tahun" min="2000" max="2100" placeholder="2026">
+      </div>
+      <div>
+        <label>No. Label (otomatis, urut per tahun)</label>
+        <input type="text" id="noLabelDisplay" readonly placeholder="Isi Tahun dulu">
+        <input type="hidden" id="noLabel">
+      </div>
+      <div>
+        <label>Nomor Surat Keluar</label>
+        <input type="text" id="noSurat">
+      </div>
+      <div>
+        <label>Tanggal Keluar Izin</label>
+        <input type="date" id="tglKeluar">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="btn-primary" id="submitBtn">Simpan Dokumen</button>
+      <button type="button" class="btn-secondary" id="cancelEditBtn" style="display:none">Batal Edit</button>
+    </div>
+    <div id="status"></div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Daftar Dokumen Izin</h2>
+  <div class="view-toggle">
+    <button type="button" class="toggle-btn active" id="viewDokumenBtn">📄 Per Dokumen</button>
+    <button type="button" class="toggle-btn" id="viewPerusahaanBtn">🏢 Per Perusahaan</button>
+  </div>
+  <div class="toolbar">
+    <input type="text" id="searchBox" placeholder="🔍 Cari nama perusahaan, no. label, kecamatan...">
+    <select id="filterKecamatan">
+      <option value="">Semua Kecamatan</option>
+    </select>
+  </div>
+
+  <div class="table-wrap" id="flatView">
+    <table>
+      <thead>
+        <tr>
+          <th>No Urut</th>
+          <th>No Label</th>
+          <th>Nama Industri/Usaha</th>
+          <th>Kecamatan</th>
+          <th>Jenis Usaha</th>
+          <th>Tahun</th>
+          <th>No Surat</th>
+          <th>Tgl Keluar</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+    <div id="emptyState" style="display:none">Belum ada data dokumen izin.</div>
+  </div>
+
+  <div id="groupedView" style="display:none"></div>
+
+  <div class="pagination" id="pagination" style="display:none">
+    <button type="button" class="btn-header" id="prevPageBtn">← Sebelumnya</button>
+    <span id="pageInfo" style="font-size:13px;color:var(--muted)"></span>
+    <button type="button" class="btn-header" id="nextPageBtn">Selanjutnya →</button>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let allDocs = [];
+let selectedCompany = null; // {id, nama_industri, alamat, desa_kelurahan, kecamatan, jenis_usaha}
+let searchTimeout = null;
+const PAGE_SIZE = 20;
+let currentPage = 1;
+
+// ---------- LOAD & RENDER DOKUMEN ----------
+async function loadDocs() {
+  const { data, error } = await supabase
+    .from('dokumen_izin')
+    .select('*, perusahaan(nama_industri, alamat, desa_kelurahan, kecamatan, jenis_usaha)')
+    .order('tahun', { ascending: true, nullsFirst: false })
+    .order('no_label', { ascending: true, nullsFirst: false });
+
+  if (error) { showStatus('Gagal memuat data: ' + error.message, false); return; }
+  allDocs = data;
+  populateKecamatanFilter();
+  currentPage = 1;
+  render();
+}
+
+function populateKecamatanFilter() {
+  const select = document.getElementById('filterKecamatan');
+  const current = select.value;
+  const unique = [...new Set(allDocs.map(d => (d.perusahaan || {}).kecamatan).filter(Boolean))].sort();
+  select.innerHTML = '<option value="">Semua Kecamatan</option>' +
+    unique.map(k => '<option value="' + esc(k) + '">' + esc(k) + '</option>').join('');
+  select.value = current;
+}
+
+function getFilteredDocs() {
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  const fKecamatan = document.getElementById('filterKecamatan').value;
+  return allDocs.filter(d => {
+    const p = d.perusahaan || {};
+    const haystack = [d.no_label, p.nama_industri, p.kecamatan, p.jenis_usaha, d.no_surat]
+      .join(' ').toLowerCase();
+    const matchSearch = !q || haystack.includes(q);
+    const matchKecamatan = !fKecamatan || p.kecamatan === fKecamatan;
+    return matchSearch && matchKecamatan;
+  });
+}
+
+let viewMode = 'dokumen'; // 'dokumen' atau 'perusahaan'
+
+function render() {
+  if (viewMode === 'dokumen') {
+    document.getElementById('flatView').style.display = 'block';
+    document.getElementById('groupedView').style.display = 'none';
+    renderFlatView();
+  } else {
+    document.getElementById('flatView').style.display = 'none';
+    document.getElementById('groupedView').style.display = 'block';
+    renderGroupedView();
+  }
+}
+
+document.getElementById('viewDokumenBtn').addEventListener('click', () => {
+  viewMode = 'dokumen'; currentPage = 1;
+  document.getElementById('viewDokumenBtn').classList.add('active');
+  document.getElementById('viewPerusahaanBtn').classList.remove('active');
+  render();
+});
+document.getElementById('viewPerusahaanBtn').addEventListener('click', () => {
+  viewMode = 'perusahaan'; currentPage = 1;
+  document.getElementById('viewPerusahaanBtn').classList.add('active');
+  document.getElementById('viewDokumenBtn').classList.remove('active');
+  render();
+});
+
+function renderPagination(totalItems, totalPages, satuanLabel) {
+  const pagination = document.getElementById('pagination');
+  if (totalItems > PAGE_SIZE) {
+    pagination.style.display = 'flex';
+    document.getElementById('pageInfo').textContent = 'Halaman ' + currentPage + ' dari ' + totalPages + ' (' + totalItems + ' ' + satuanLabel + ')';
+    document.getElementById('prevPageBtn').disabled = currentPage <= 1;
+    document.getElementById('nextPageBtn').disabled = currentPage >= totalPages;
+  } else {
+    pagination.style.display = 'none';
+  }
+}
+
+function renderFlatView() {
+  const filtered = getFilteredDocs();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const startIdx = (currentPage - 1) * PAGE_SIZE;
+  const pageItems = filtered.slice(startIdx, startIdx + PAGE_SIZE);
+
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+  document.getElementById('emptyState').style.display = filtered.length ? 'none' : 'block';
+
+  pageItems.forEach((d, i) => {
+    const p = d.perusahaan || {};
+    const nomorTampil = startIdx + i + 1; // nomor urut tampilan, selalu mulai dari 1
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>' + nomorTampil + '</td>' +
+      '<td>' + esc(d.no_label) + '/' + esc(d.tahun) + '</td>' +
+      '<td>' + esc(p.nama_industri) + '</td>' +
+      '<td>' + esc(p.kecamatan) + '</td>' +
+      '<td>' + esc(p.jenis_usaha) + '</td>' +
+      '<td>' + esc(d.tahun) + '</td>' +
+      '<td>' + esc(d.no_surat) + '</td>' +
+      '<td>' + esc(d.tgl_keluar) + '</td>' +
+      '<td class="row-actions">' +
+        '<button class="btn-edit" data-id="' + d.id + '">Edit</button> ' +
+        '<button class="btn-delete" data-id="' + d.id + '">Hapus</button>' +
+      '</td>';
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('.btn-edit').forEach(b => b.addEventListener('click', () => editDoc(b.dataset.id)));
+  tbody.querySelectorAll('.btn-delete').forEach(b => b.addEventListener('click', () => deleteDoc(b.dataset.id)));
+
+  renderPagination(filtered.length, totalPages, 'dokumen');
+}
+
+function buildCompanyGroups(filtered) {
+  const map = new Map();
+  filtered.forEach(d => {
+    const key = d.perusahaan_id;
+    if (!map.has(key)) {
+      const p = d.perusahaan || {};
+      map.set(key, {
+        id: key, nama_industri: p.nama_industri, alamat: p.alamat,
+        desa_kelurahan: p.desa_kelurahan, kecamatan: p.kecamatan, jenis_usaha: p.jenis_usaha, docs: []
+      });
+    }
+    map.get(key).docs.push(d);
+  });
+  return Array.from(map.values()).sort((a, b) => (a.nama_industri || '').localeCompare(b.nama_industri || ''));
+}
+
+function renderGroupedView() {
+  const filtered = getFilteredDocs();
+  const groups = buildCompanyGroups(filtered);
+  const totalPages = Math.max(1, Math.ceil(groups.length / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const startIdx = (currentPage - 1) * PAGE_SIZE;
+  const pageItems = groups.slice(startIdx, startIdx + PAGE_SIZE);
+
+  const container = document.getElementById('groupedView');
+  if (groups.length === 0) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px;font-size:13px">Belum ada data.</div>';
+  } else {
+    container.innerHTML = '';
+    pageItems.forEach((c, i) => {
+      const nomor = startIdx + i + 1;
+      const docsRows = c.docs.map(d =>
+        '<tr><td>' + esc(d.no_label) + '/' + esc(d.tahun) + '</td><td>' + esc(d.tahun) + '</td><td>' + esc(d.no_surat) + '</td><td>' + esc(d.tgl_keluar) + '</td>' +
+        '<td class="row-actions"><button class="btn-edit" data-id="' + d.id + '">Edit</button> <button class="btn-delete" data-id="' + d.id + '">Hapus</button></td></tr>'
+      ).join('');
+
+      const details = document.createElement('details');
+      details.className = 'company-group';
+      details.innerHTML =
+        '<summary><span><span class="cname">' + nomor + '. ' + esc(c.nama_industri) + '</span><br>' +
+        '<span class="cmeta">' + esc(c.kecamatan) + ' · ' + esc(c.jenis_usaha) + '</span></span>' +
+        '<span class="badge-count">' + c.docs.length + ' dokumen</span></summary>' +
+        '<div class="company-detail">' + esc(c.alamat) + ', ' + esc(c.desa_kelurahan) + ', Kec. ' + esc(c.kecamatan) + '</div>' +
+        '<table><thead><tr><th>Label/Tahun</th><th>Tahun</th><th>No Surat</th><th>Tgl Keluar</th><th></th></tr></thead>' +
+        '<tbody>' + docsRows + '</tbody></table>';
+      container.appendChild(details);
+    });
+
+    container.querySelectorAll('.btn-edit').forEach(b => b.addEventListener('click', () => editDoc(b.dataset.id)));
+    container.querySelectorAll('.btn-delete').forEach(b => b.addEventListener('click', () => deleteDoc(b.dataset.id)));
+  }
+
+  renderPagination(groups.length, totalPages, 'perusahaan');
+}
+
+document.getElementById('prevPageBtn').addEventListener('click', () => { currentPage--; render(); });
+document.getElementById('nextPageBtn').addEventListener('click', () => { currentPage++; render(); });
+document.getElementById('filterKecamatan').addEventListener('change', () => { currentPage = 1; render(); });
+
+function esc(str) {
+  if (str === undefined || str === null) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ---------- AUTOCOMPLETE PERUSAHAAN ----------
+const searchInput = document.getElementById('searchCompany');
+const suggestionsBox = document.getElementById('suggestions');
+const companyFieldIds = ['alamat', 'desaKelurahan', 'kecamatan', 'jenisUsaha'];
+
+searchInput.addEventListener('input', () => {
+  // Ketikan berubah -> anggap perusahaan baru lagi, buka kunci field (kalau lagi terkunci)
+  if (selectedCompany) unlockCompanyFields();
+
+  const term = searchInput.value.trim();
+  clearTimeout(searchTimeout);
+  if (!term) { suggestionsBox.style.display = 'none'; return; }
+  searchTimeout = setTimeout(async () => {
+    const { data, error } = await supabase
+      .from('perusahaan')
+      .select('*')
+      .ilike('nama_industri', '%' + term + '%')
+      .limit(8);
+    if (error) return;
+    renderSuggestions(data, term);
+  }, 300);
+});
+
+function renderSuggestions(list, term) {
+  // Kalau ada yang namanya PERSIS SAMA (bukan cuma mirip), langsung anggap itu perusahaan
+  // yang sudah ada -> auto-kunci, gak perlu diklik manual
+  const exact = list.find(p => p.nama_industri.trim().toLowerCase() === term.trim().toLowerCase());
+  if (exact) { selectCompany(exact); return; }
+
+  suggestionsBox.innerHTML = '';
+  if (list.length === 0) { suggestionsBox.style.display = 'none'; return; }
+  list.forEach(p => {
+    const div = document.createElement('div');
+    div.innerHTML = esc(p.nama_industri) + '<div class="sug-sub">' + esc(p.kecamatan || '-') + ' · ' + esc(p.jenis_usaha || '-') + '</div>';
+    div.addEventListener('click', () => selectCompany(p));
+    suggestionsBox.appendChild(div);
+  });
+  suggestionsBox.style.display = 'block';
+}
+
+function selectCompany(p) {
+  selectedCompany = p;
+  document.getElementById('perusahaanId').value = p.id;
+  searchInput.value = p.nama_industri;
+  suggestionsBox.style.display = 'none';
+
+  document.getElementById('alamat').value = p.alamat || '';
+  document.getElementById('desaKelurahan').value = p.desa_kelurahan || '';
+  document.getElementById('kecamatan').value = p.kecamatan || '';
+  document.getElementById('jenisUsaha').value = p.jenis_usaha || '';
+  companyFieldIds.forEach(id => document.getElementById(id).readOnly = true);
+
+  const box = document.getElementById('selectedCompanyBox');
+  box.style.display = 'block';
+  box.innerHTML = '✓ Perusahaan ini sudah ada di database, datanya otomatis diisi. ' +
+    '<button type="button" class="btn-link" id="unlockCompanyBtn" style="margin-left:6px">Bukan perusahaan ini?</button>';
+  document.getElementById('unlockCompanyBtn').addEventListener('click', () => {
+    unlockCompanyFields();
+    searchInput.focus();
+  });
+}
+
+function unlockCompanyFields() {
+  selectedCompany = null;
+  document.getElementById('perusahaanId').value = '';
+  document.getElementById('selectedCompanyBox').style.display = 'none';
+  companyFieldIds.forEach(id => {
+    document.getElementById(id).readOnly = false;
+    document.getElementById(id).value = '';
+  });
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.autocomplete-wrap')) suggestionsBox.style.display = 'none';
+});
+
+// ---------- HITUNG OTOMATIS NO LABEL PER TAHUN ----------
+async function updateNoLabelPreview() {
+  const tahun = document.getElementById('tahun').value;
+  const display = document.getElementById('noLabelDisplay');
+  const hidden = document.getElementById('noLabel');
+  if (!tahun) { display.value = ''; hidden.value = ''; return; }
+  const { data, error } = await supabase
+    .from('dokumen_izin')
+    .select('no_label')
+    .eq('tahun', tahun)
+    .order('no_label', { ascending: false })
+    .limit(1);
+  if (error) { display.value = 'Gagal hitung'; return; }
+  const next = (data && data.length && data[0].no_label) ? Number(data[0].no_label) + 1 : 1;
+  display.value = next + ' / ' + tahun;
+  hidden.value = next;
+}
+document.getElementById('tahun').addEventListener('input', updateNoLabelPreview);
+document.getElementById('tahun').addEventListener('blur', updateNoLabelPreview);
+
+// ---------- SUBMIT FORM ----------
+document.getElementById('docForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const submitBtn = document.getElementById('submitBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Menyimpan...';
+
+  try {
+    let perusahaanId = document.getElementById('perusahaanId').value;
+    const editId = document.getElementById('editId').value;
+    const namaInput = searchInput.value.trim();
+
+    if (!perusahaanId) {
+      // Belum ada perusahaan terpilih dari saran -> mau dibuat baru.
+      // Jaga-jaga: cek dulu ke database, siapa tau namanya PERSIS sama dengan yang
+      // sudah ada tapi belum sempat ke-auto-detect (misal langsung paste & submit cepat).
+      const { data: cek, error: errCek } = await supabase
+        .from('perusahaan')
+        .select('id, nama_industri')
+        .ilike('nama_industri', namaInput);
+      if (errCek) throw errCek;
+      const sudahAda = (cek || []).find(p => p.nama_industri.trim().toLowerCase() === namaInput.toLowerCase());
+      if (sudahAda) {
+        throw new Error('Perusahaan "' + namaInput + '" sudah ada di database. Pilih dari saran pencarian di atas ya, biar gak dobel.');
+      }
+
+      const { data: newP, error: errP } = await supabase.from('perusahaan').insert({
+        nama_industri: namaInput,
+        alamat: document.getElementById('alamat').value,
+        desa_kelurahan: document.getElementById('desaKelurahan').value,
+        kecamatan: document.getElementById('kecamatan').value,
+        jenis_usaha: document.getElementById('jenisUsaha').value
+      }).select().single();
+      if (errP) throw errP;
+      perusahaanId = newP.id;
+    } else if (editId) {
+      // Mode edit dokumen yang perusahaannya sudah ada -> boleh update data perusahaannya juga
+      const { error: errUpdateP } = await supabase.from('perusahaan').update({
+        nama_industri: namaInput,
+        alamat: document.getElementById('alamat').value,
+        desa_kelurahan: document.getElementById('desaKelurahan').value,
+        kecamatan: document.getElementById('kecamatan').value,
+        jenis_usaha: document.getElementById('jenisUsaha').value
+      }).eq('id', perusahaanId);
+      if (errUpdateP) throw errUpdateP;
+    }
+
+    // Hitung ulang no_label tepat sebelum simpan (biar akurat, hindari bentrok
+    // kalau ada input lain masuk di antara waktu buka form dan klik simpan)
+    let noLabelFinal = document.getElementById('noLabel').value;
+    if (!editId) {
+      await updateNoLabelPreview();
+      noLabelFinal = document.getElementById('noLabel').value;
+    }
+
+    const docPayload = {
+      no_label: noLabelFinal || null,
+      perusahaan_id: perusahaanId,
+      tahun: document.getElementById('tahun').value || null,
+      no_surat: document.getElementById('noSurat').value,
+      tgl_keluar: document.getElementById('tglKeluar').value || null
+    };
+
+    if (editId) {
+      const { error } = await supabase.from('dokumen_izin').update(docPayload).eq('id', editId);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from('dokumen_izin').insert(docPayload);
+      if (error) throw error;
+    }
+
+    resetForm();
+    await loadDocs();
+    showStatus('Tersimpan.', true);
+  } catch (err) {
+    showStatus('Gagal: ' + err.message, false);
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
+
+// ---------- EDIT ----------
+function editDoc(id) {
+  const d = allDocs.find(x => x.id === id);
+  if (!d) return;
+  const p = d.perusahaan || {};
+  document.getElementById('editId').value = d.id;
+  document.getElementById('perusahaanId').value = d.perusahaan_id;
+  searchInput.value = p.nama_industri || '';
+  selectCompany({ id: d.perusahaan_id, ...p });
+
+  // Beda dari mode "tambah dokumen" (field perusahaan dikunci biar aman),
+  // di mode EDIT field perusahaan tetap boleh diubah penuh, tapi perusahaanId
+  // TETAP dipertahankan (jadi nanti ke-update, bukan bikin perusahaan baru).
+  companyFieldIds.forEach(id => document.getElementById(id).readOnly = false);
+  document.getElementById('selectedCompanyBox').innerHTML =
+    '✏️ Kamu bisa ubah data perusahaan di bawah ini — perubahan akan tersimpan untuk perusahaan ini.';
+
+  document.getElementById('noLabel').value = d.no_label || '';
+  document.getElementById('tahun').value = d.tahun || '';
+  document.getElementById('noLabelDisplay').value = (d.no_label || '') + ' / ' + (d.tahun || '');
+  document.getElementById('noSurat').value = d.no_surat || '';
+  document.getElementById('tglKeluar').value = d.tgl_keluar || '';
+  document.getElementById('formTitle').textContent = 'Edit Dokumen Izin';
+  document.getElementById('submitBtn').textContent = 'Update Dokumen';
+  document.getElementById('cancelEditBtn').style.display = 'inline-block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.getElementById('cancelEditBtn').addEventListener('click', resetForm);
+
+function resetForm() {
+  document.getElementById('docForm').reset();
+  document.getElementById('editId').value = '';
+  document.getElementById('formTitle').textContent = 'Tambah Dokumen Izin';
+  document.getElementById('submitBtn').textContent = 'Simpan Dokumen';
+  document.getElementById('cancelEditBtn').style.display = 'none';
+  unlockCompanyFields();
+}
+
+// ---------- DELETE ----------
+async function deleteDoc(id) {
+  const d = allDocs.find(x => x.id === id);
+  if (!confirm('Hapus dokumen izin ini?')) return;
+
+  const { error } = await supabase.from('dokumen_izin').delete().eq('id', id);
+  if (error) { showStatus('Gagal: ' + error.message, false); return; }
+
+  // Cek: apakah ini dokumen TERAKHIR milik perusahaan tsb? Kalau iya, data
+  // perusahaannya jadi "nyantol" tanpa dokumen sama sekali -> tawarkan dibersihkan juga.
+  if (d && d.perusahaan_id) {
+    const { count } = await supabase
+      .from('dokumen_izin')
+      .select('id', { count: 'exact', head: true })
+      .eq('perusahaan_id', d.perusahaan_id);
+
+    if (count === 0) {
+      const namaP = (d.perusahaan || {}).nama_industri || 'perusahaan ini';
+      if (confirm('Ini dokumen terakhir milik "' + namaP + '". Sekalian hapus juga data perusahaannya dari database? (Kalau tidak, datanya tetap tersimpan meski tanpa dokumen)')) {
+        await supabase.from('perusahaan').delete().eq('id', d.perusahaan_id);
+      }
+    }
+  }
+
+  await loadDocs();
+  showStatus('Dokumen dihapus.', true);
+}
+
+function showStatus(msg, ok) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = ok ? 'status-ok' : 'status-err';
+  setTimeout(() => { el.textContent = ''; }, 3000);
+}
+
+document.getElementById('searchBox').addEventListener('input', () => { currentPage = 1; render(); });
+
+// ---------- EXPORT KE EXCEL ----------
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const filtered = getFilteredDocs();
+
+  if (filtered.length === 0) {
+    alert('Tidak ada data untuk diexport.');
+    return;
+  }
+
+  const rows = filtered.map((d, i) => {
+    const p = d.perusahaan || {};
+    return {
+      'NO URUT': i + 1,
+      'LABEL': d.no_label,
+      'NAMA INDUSTRI': p.nama_industri || '',
+      'ALAMAT': p.alamat || '',
+      'DESA/KELURAHAN': p.desa_kelurahan || '',
+      'KECAMATAN': p.kecamatan || '',
+      'JENIS USAHA': p.jenis_usaha || '',
+      'TAHUN': d.tahun,
+      'NO. SURAT': d.no_surat || '',
+      'TANGGAL': d.tgl_keluar || ''
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [
+    { wch: 8 }, { wch: 8 }, { wch: 28 }, { wch: 26 }, { wch: 18 },
+    { wch: 14 }, { wch: 18 }, { wch: 8 }, { wch: 22 }, { wch: 12 }
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Data Izin');
+
+  const today = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, 'database-izin-dlh-' + today + '.xlsx');
+});
+
+loadDocs();
+</script>
+</body>
+</html>
