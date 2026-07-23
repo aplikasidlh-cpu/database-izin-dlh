@@ -117,27 +117,48 @@ const BULAN_MAP = {
 };
 let tanggalGagal = []; // untuk dilaporkan ke user, bukan bikin proses berhenti
 
+function isValidCalendarDate(year, month, day) {
+  // month: 1-12. Cek tanggal itu beneran ada (contoh: 31 November TIDAK valid)
+  const daysInMonth = new Date(year, month, 0).getDate();
+  return day >= 1 && day <= daysInMonth && month >= 1 && month <= 12;
+}
+
+function toIsoIfValid(year, month, day) {
+  if (!isValidCalendarDate(year, month, day)) return null;
+  return year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+}
+
 function formatDate(val, contextLabel) {
   if (val instanceof Date && !isNaN(val)) return val.toISOString().slice(0, 10);
   if (typeof val !== 'string' || !val.trim()) return '';
   const str = val.trim();
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str; // sudah ISO
+  let result = null;
 
-  // format "21-Nop-2008" / "21 November 2008" / "21/Nov/2008"
-  let m = str.match(/^(\d{1,2})[\s\-\/]+([A-Za-z]{3,})[\s\-\/]+(\d{4})$/);
-  if (m) {
-    const bulan = BULAN_MAP[m[2].substring(0, 3).toUpperCase()];
-    if (bulan) return m[3] + '-' + String(bulan).padStart(2, '0') + '-' + m[1].padStart(2, '0');
+  let m = str.match(/^(\d{4})-(\d{2})-(\d{2})$/); // sudah ISO
+  if (m) result = toIsoIfValid(Number(m[1]), Number(m[2]), Number(m[3]));
+
+  if (!result) {
+    // format "21-Nop-2008" / "21 November 2008" / "21/Nov/2008"
+    m = str.match(/^(\d{1,2})[\s\-\/]+([A-Za-z]{3,})[\s\-\/]+(\d{4})$/);
+    if (m) {
+      const bulan = BULAN_MAP[m[2].substring(0, 3).toUpperCase()];
+      if (bulan) result = toIsoIfValid(Number(m[3]), bulan, Number(m[1]));
+    }
   }
 
-  // format "21-11-2008" / "21/11/2008" (DD-MM-YYYY ala Indonesia)
-  m = str.match(/^(\d{1,2})[\-\/](\d{1,2})[\-\/](\d{4})$/);
-  if (m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+  if (!result) {
+    // format "21-11-2008" / "21/11/2008" (DD-MM-YYYY ala Indonesia)
+    m = str.match(/^(\d{1,2})[\-\/](\d{1,2})[\-\/](\d{4})$/);
+    if (m) result = toIsoIfValid(Number(m[3]), Number(m[2]), Number(m[1]));
+  }
 
-  // gak kekenal formatnya -> kosongkan, catat buat dilaporkan, JANGAN bikin gagal semua
-  tanggalGagal.push({ label: contextLabel, nilai: str });
-  return '';
+  if (!result) {
+    // gak kekenal formatnya ATAU tanggalnya gak valid -> kosongkan, catat, JANGAN bikin gagal semua
+    tanggalGagal.push({ label: contextLabel, nilai: str });
+    return '';
+  }
+  return result;
 }
 
 function normalizeRows(json) {
