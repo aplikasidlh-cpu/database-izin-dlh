@@ -152,11 +152,12 @@
 <div class="subtitle">DLH Kabupaten Mojokerto</div>
 
 <div class="header-actions">
-  <a href="import.html" class="btn-header">📥 Import dari Excel</a>
+  <a href="import.html" class="btn-header" id="importLink">📥 Import dari Excel</a>
   <button type="button" class="btn-header" id="exportBtn">📤 Export ke Excel</button>
+  <button type="button" class="btn-header" id="logoutBtn" style="margin-left:auto">🚪 Keluar</button>
 </div>
 
-<div class="card">
+<div class="card" id="addFormCard">
   <h2 id="formTitle">Tambah Dokumen Izin</h2>
   <form id="docForm">
     <input type="hidden" id="editId">
@@ -263,6 +264,24 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Wajib login dulu sebelum bisa lihat data apa pun
+const { data: { session } } = await supabase.auth.getSession();
+if (!session) { window.location.href = 'login.html'; }
+
+// Ambil peran (role) user: admin, taling, atau penaatan
+const { data: { user } } = await supabase.auth.getUser();
+const userRole = (user && user.user_metadata && user.user_metadata.role) || 'penaatan';
+const canEdit = (userRole === 'admin' || userRole === 'taling');   // boleh tambah/edit/hapus/import
+const canExport = (userRole === 'admin' || userRole === 'penaatan'); // boleh export
+
+if (!canEdit) {
+  document.getElementById('addFormCard').style.display = 'none';
+  document.getElementById('importLink').style.display = 'none';
+}
+if (!canExport) {
+  document.getElementById('exportBtn').style.display = 'none';
+}
 
 let allDocs = [];
 let selectedCompany = null; // {id, nama_industri, alamat, desa_kelurahan, kecamatan, jenis_usaha}
@@ -371,8 +390,7 @@ function renderFlatView() {
       '<td>' + esc(d.no_surat) + '</td>' +
       '<td>' + esc(d.tgl_keluar) + '</td>' +
       '<td class="row-actions">' +
-        '<button class="btn-edit" data-id="' + d.id + '">Edit</button> ' +
-        '<button class="btn-delete" data-id="' + d.id + '">Hapus</button>' +
+        (canEdit ? '<button class="btn-edit" data-id="' + d.id + '">Edit</button> <button class="btn-delete" data-id="' + d.id + '">Hapus</button>' : '') +
       '</td>';
     tbody.appendChild(tr);
   });
@@ -416,7 +434,7 @@ function renderGroupedView() {
       const nomor = startIdx + i + 1;
       const docsRows = c.docs.map(d =>
         '<tr><td>' + esc(d.no_label) + '/' + esc(d.tahun) + '</td><td>' + esc(d.tahun) + '</td><td>' + esc(d.no_surat) + '</td><td>' + esc(d.tgl_keluar) + '</td>' +
-        '<td class="row-actions"><button class="btn-edit" data-id="' + d.id + '">Edit</button> <button class="btn-delete" data-id="' + d.id + '">Hapus</button></td></tr>'
+        '<td class="row-actions">' + (canEdit ? '<button class="btn-edit" data-id="' + d.id + '">Edit</button> <button class="btn-delete" data-id="' + d.id + '">Hapus</button>' : '') + '</td></tr>'
       ).join('');
 
       const details = document.createElement('details');
@@ -739,8 +757,12 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   XLSX.writeFile(wb, 'database-izin-dlh-' + today + '.xlsx');
 });
 
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await supabase.auth.signOut();
+  window.location.href = 'login.html';
+});
+
 loadDocs();
 </script>
 </body>
 </html>
- 
