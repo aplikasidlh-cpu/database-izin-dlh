@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard - Database Izin Lingkungan</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --primary: #16803c; --primary-dark: #116330; --bg: #f4f6f9;
+    --card: #ffffff; --border: #e2e8f0; --text: #1e293b; --muted: #64748b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg); color: var(--text); margin: 0; padding: 24px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .header-actions { display: flex; gap: 10px; margin-bottom: 20px; }
+  .btn-header {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #fff; border: 1px solid var(--border); color: var(--text);
+    padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600;
+    text-decoration: none; cursor: pointer;
+  }
+  .btn-header:hover { background: #f8fafc; }
+  .summary-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px; margin-bottom: 20px;
+  }
+  .summary-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px;
+  }
+  .summary-card .num { font-size: 28px; font-weight: 700; color: var(--primary-dark); }
+  .summary-card .label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .charts-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  }
+  @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px;
+    margin-bottom: 20px;
+  }
+  .card h2 { font-size: 15px; margin: 0 0 14px; }
+  .chart-wrap { position: relative; height: 320px; }
+  .loading { text-align: center; color: var(--muted); padding: 40px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>📊 Dashboard Rekap</h1>
+<div class="subtitle">DLH Kabupaten Mojokerto — Database Izin Lingkungan</div>
+
+<div class="header-actions">
+  <a href="index.html" class="btn-header">← Kembali ke Data</a>
+  <button type="button" class="btn-header" id="logoutBtn" style="margin-left:auto">🚪 Keluar</button>
+</div>
+
+<div id="loadingMsg" class="loading">Memuat data...</div>
+
+<div id="dashboardContent" style="display:none">
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="num" id="totalDokumen">0</div>
+      <div class="label">Total Dokumen Izin</div>
+    </div>
+    <div class="summary-card">
+      <div class="num" id="totalPerusahaan">0</div>
+      <div class="label">Total Perusahaan</div>
+    </div>
+    <div class="summary-card">
+      <div class="num" id="totalKecamatan">0</div>
+      <div class="label">Kecamatan Tercakup</div>
+    </div>
+    <div class="summary-card">
+      <div class="num" id="dokumenTahunIni">0</div>
+      <div class="label">Dokumen Tahun <span id="tahunIniLabel"></span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Jumlah Dokumen per Tahun</h2>
+    <div class="chart-wrap"><canvas id="chartTahun"></canvas></div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="card">
+      <h2>Jumlah Dokumen per Kecamatan</h2>
+      <div class="chart-wrap"><canvas id="chartKecamatan"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Top 10 Jenis Usaha</h2>
+      <div class="chart-wrap"><canvas id="chartJenisUsaha"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Wajib login
+const { data: { session } } = await supabase.auth.getSession();
+if (!session) { window.location.href = 'login.html'; }
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await supabase.auth.signOut();
+  window.location.href = 'login.html';
+});
+
+const COLORS = ['#16803c', '#2563eb', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#65a30d', '#c026d3', '#ea580c', '#0d9488'];
+
+async function loadDashboard() {
+  const { data, error } = await supabase
+    .from('dokumen_izin')
+    .select('tahun, perusahaan_id, perusahaan(kecamatan, jenis_usaha)');
+
+  if (error) {
+    document.getElementById('loadingMsg').textContent = 'Gagal memuat data: ' + error.message;
+    return;
+  }
+
+  document.getElementById('loadingMsg').style.display = 'none';
+  document.getElementById('dashboardContent').style.display = 'block';
+
+  // ===== Ringkasan =====
+  const totalDokumen = data.length;
+  const perusahaanIdSet = new Set(data.map(d => d.perusahaan_id));
+  const kecamatanSet = new Set(data.map(d => (d.perusahaan || {}).kecamatan).filter(Boolean));
+  const tahunSekarang = new Date().getFullYear();
+  const dokumenTahunIni = data.filter(d => Number(d.tahun) === tahunSekarang).length;
+
+  document.getElementById('totalDokumen').textContent = totalDokumen.toLocaleString('id-ID');
+  document.getElementById('totalPerusahaan').textContent = perusahaanIdSet.size.toLocaleString('id-ID');
+  document.getElementById('totalKecamatan').textContent = kecamatanSet.size;
+  document.getElementById('dokumenTahunIni').textContent = dokumenTahunIni.toLocaleString('id-ID');
+  document.getElementById('tahunIniLabel').textContent = tahunSekarang;
+
+  // ===== Chart per Tahun =====
+  const perTahun = {};
+  data.forEach(d => {
+    const t = d.tahun || 'Tidak diketahui';
+    perTahun[t] = (perTahun[t] || 0) + 1;
+  });
+  const tahunLabels = Object.keys(perTahun).sort();
+  const tahunValues = tahunLabels.map(t => perTahun[t]);
+
+  new Chart(document.getElementById('chartTahun'), {
+    type: 'bar',
+    data: {
+      labels: tahunLabels,
+      datasets: [{ label: 'Jumlah Dokumen', data: tahunValues, backgroundColor: '#16803c', borderRadius: 4 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+
+  // ===== Chart per Kecamatan =====
+  const perKecamatan = {};
+  data.forEach(d => {
+    const k = (d.perusahaan || {}).kecamatan || 'Tidak diketahui';
+    perKecamatan[k] = (perKecamatan[k] || 0) + 1;
+  });
+  const kecamatanSorted = Object.entries(perKecamatan).sort((a, b) => b[1] - a[1]);
+
+  new Chart(document.getElementById('chartKecamatan'), {
+    type: 'bar',
+    data: {
+      labels: kecamatanSorted.map(x => x[0]),
+      datasets: [{ label: 'Jumlah Dokumen', data: kecamatanSorted.map(x => x[1]), backgroundColor: '#2563eb', borderRadius: 4 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+
+  // ===== Chart per Jenis Usaha (top 10) =====
+  const perJenis = {};
+  data.forEach(d => {
+    const j = (d.perusahaan || {}).jenis_usaha || 'Tidak diketahui';
+    perJenis[j] = (perJenis[j] || 0) + 1;
+  });
+  const jenisSorted = Object.entries(perJenis).sort((a, b) => b[1] - a[1]);
+  const top10 = jenisSorted.slice(0, 10);
+  const sisaTotal = jenisSorted.slice(10).reduce((sum, x) => sum + x[1], 0);
+  if (sisaTotal > 0) top10.push(['Lainnya', sisaTotal]);
+
+  new Chart(document.getElementById('chartJenisUsaha'), {
+    type: 'doughnut',
+    data: {
+      labels: top10.map(x => x[0]),
+      datasets: [{ data: top10.map(x => x[1]), backgroundColor: COLORS }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } }
+    }
+  });
+}
+
+loadDashboard();
+</script>
+</body>
+</html>
