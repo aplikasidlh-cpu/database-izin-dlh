@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Login - Database Izin Lingkungan</title>
+<style>
+  :root {
+    --primary: #16803c; --primary-dark: #116330; --bg: #f4f6f9;
+    --card: #ffffff; --border: #e2e8f0; --text: #1e293b; --muted: #64748b; --danger: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg); color: var(--text); margin: 0;
+    min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .login-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 32px; width: 100%; max-width: 380px;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; text-align: center; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; text-align: center; }
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; margin-top: 14px; }
+  input {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 14px; font-family: inherit;
+  }
+  button {
+    width: 100%; margin-top: 20px; cursor: pointer; border: none; border-radius: 6px;
+    padding: 11px; font-size: 14px; font-weight: 600; background: var(--primary); color: #fff;
+  }
+  button:hover { background: var(--primary-dark); }
+  button:disabled { background: #94a3b8; cursor: not-allowed; }
+  #status { font-size: 13px; margin-top: 14px; text-align: center; }
+  .status-err { color: var(--danger); }
+</style>
+</head>
+<body>
+
+<div class="login-card">
+  <h1>🌿 Database Izin Lingkungan</h1>
+  <div class="subtitle">DLH Kabupaten Mojokerto — Login Internal</div>
+  <form id="loginForm">
+    <label>Username</label>
+    <input type="text" id="username" required autocomplete="username" placeholder="Admin / Bidang Penaatan / Bidang Taling">
+    <label>Password</label>
+    <input type="password" id="password" required autocomplete="current-password">
+    <button type="submit" id="loginBtn">Masuk</button>
+    <div id="status"></div>
+  </form>
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function usernameToEmail(username) {
+  const slug = username.trim().toLowerCase().replace(/\s+/g, '-');
+  return slug + '@dlh-mjk.local';
+}
+
+// Kalau sudah login, langsung lempar ke halaman utama
+const { data: { session } } = await supabase.auth.getSession();
+if (session) window.location.href = 'index.html';
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('loginBtn');
+  const status = document.getElementById('status');
+  btn.disabled = true;
+  btn.textContent = 'Memproses...';
+  status.textContent = '';
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email: usernameToEmail(document.getElementById('username').value),
+    password: document.getElementById('password').value
+  });
+
+  if (error) {
+    status.className = 'status-err';
+    status.textContent = 'Login gagal: username atau password salah.';
+    btn.disabled = false;
+    btn.textContent = 'Masuk';
+    return;
+  }
+
+  window.location.href = 'index.html';
+});
+</script>
+</body>
+</html>
